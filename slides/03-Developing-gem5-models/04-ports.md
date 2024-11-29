@@ -1308,7 +1308,7 @@ from gem5.components.boards.abstract_board import AbstractBoard
 from gem5.components.memory.memory import ChanneledMemory
 from gem5.utils.override import overrides
 
-class SecureMemory(ChanneledMemory):
+class ChanneledSecureMemory(ChanneledMemory):
     def __init__(
         self,
         dram_interface_class: Type[DRAMInterface],
@@ -1362,14 +1362,14 @@ class SecureMemory(ChanneledMemory):
 Now, let's just simply add the following imports to `gem5/configs/bootcamp/secure_memory/first-secure-memory-example.py`:
 
 ```python
-from components.inspected_memory import SecureMemory
+from components.inspected_memory import ChanneledSecureMemory
 from m5.objects.DRAMInterface import DDR3_1600_8x8
 ```
 
 Let's now create an object of `SecureMemory` with the following parameters.
 
 ```python
-memory = SecureMemory(
+memory = ChanneledSecureMemory(
     dram_interface_class=DDR3_1600_8x8,
     num_channels=2,
     interleaving_size=128,
@@ -1436,7 +1436,7 @@ Let's go ahead a declare a new `struct` called `SecureMemoryStats` inside the `p
 
 ## Statistics: Source File
 
-Let's define the constructor of `SecureMemoryStats`. Add the following code under `namespace gem5` to do this.
+Let's define the constructor of `SecureMemoryStats`. Add the following code under `namespace gem5` in the `secure_memory.cc` file to do this.
 
 ```cpp
 
@@ -1572,8 +1572,48 @@ We will send extra memory accesses to the memory controller to read and update t
 > Hints are on the next slide
 
 ---
+<!-- _class:  two-col  -->
 
-## Step 2 hints
+## Step 2: Developing the Secure Memory header file
+
+You need to define a few macros, variables and functions that are not shown in the file that is referenced below and that are neeed in order to complete the functionality of the secure memory unit. Make sure you add these to the `secure_memory.h`:
+
+```cpp
+#define ARITY 8
+#define BLOCK_SIZE 64
+#define HMAC_SIZE 8
+#define PAGE_SIZE 4096
+```
+
+###
+
+Then inside the SecureMemory class:
+
+```cpp
+    std::deque<uint64_t> integrity_levels;
+
+    // variables to help refer to certain metadata types
+    int root_level = 1;
+    int hmac_level = 0;
+    int data_level; // set after object construction in setup()
+    int counter_level; // set after object construction in setup()
+    // structures to know what is currently pending authentication, etc
+    std::set<uint64_t> pending_tree_authentication;
+    // a bit of a misnomer, we'll use this for hmacs so all tree nodes
+    // can go to pending_authentications
+    std::set<uint64_t> pending_hmac;
+    // fetched but not verified OR writes waiting for path to update
+    std::set<PacketPtr> pending_untrusted_packets;
+// secure memory functions
+    uint64_t getHmacAddr(uint64_t child_addr); // fetch address of the hmac for somed data
+    uint64_t getParentAddr(uint64_t child_addr); // fetch parent node in the tree
+    void verifyChildren(PacketPtr parent); // remove children from pending untrusted once trusted
+    bool handleResponse(PacketPtr pkt) ;
+    bool handleRequest(PacketPtr pkt);
+```
+
+---
+## Step 2: Developing the Secure Memory source file
 
 You can use the following file as a reference:
 
