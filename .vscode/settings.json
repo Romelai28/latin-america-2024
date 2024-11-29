@@ -22,5 +22,6 @@
     "markdownlint.config": {
         "default": true,
         "MD026": false
-    }
+    },
+    "cmake.sourceDirectory": "/workspaces/latin-america-2024/gem5-resources/src/gpu/halo-finder/src"
 }
